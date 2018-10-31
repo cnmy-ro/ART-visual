@@ -1,0 +1,13 @@
+AE config:
+
+	Encoder:
+		input shape:  -1 x 28 x 28 x 1
+		output shape: -1 x 7 x 7 x 8
+	Decoder:
+		input shape: -1 x 7 x 7 x 8
+		output shape:  -1 x 28 x 28 x 1
+
+ART config:
+	
+	Input size: 32 (2 x 2 x 8)
+	vigilance param, rho: 937
