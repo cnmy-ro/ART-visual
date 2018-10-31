@@ -1,6 +1,36 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import pickle
+
+############################### helper functions ##############################
+
+def minimum(A,B):
+    ans=[]
+    for i in range(len(A)):
+        #print("I and W sizes: ", len(A), len(B))
+        ans.append(min([A[i],B[i]]))
+        
+    ans = np.array(ans)
+    return ans
+    
+def complement_code(X):
+        I = np.hstack((X, 1-X))
+        return I
+   
+def get_data():
+    mnist = pd.read_csv("datasets/MNIST/mnist_test.csv").values    
+    data = {}
+    for i in range(0,10):
+        mask = mnist[:,0]==i
+        temp = mnist[mask]
+        temp = temp/255
+        np.random.shuffle(temp)
+        temp = temp[0:5, 1:]      # 5 images of each digit
+        data[str(i)] = temp
+    return data
+
+###################################  class  ###################################
 
 class fuzzy_ART:
     
@@ -11,11 +41,11 @@ class fuzzy_ART:
         self.alpha = alpha # choice parameter
         self.beta = beta   # learning rate
         
-        self.N = 0 
-        self.W = np.ones( (c_max, self.M*2) )
+        self.N = 0         # no. of categories initialized to zero
+        self.W = np.ones( (c_max, self.M*2) ) # initialize weigts with 1s
     
     def train(self, X):
-        I = complement_code(X)   # shape = Mx1
+        I = complement_code(X)   # shape of X = Mx1, shape of I = 2Mx1
         
         T = []
         for i in range(self.N):           
@@ -38,43 +68,34 @@ class fuzzy_ART:
         return None, None
     
     def infer(self, X):
-        I = complement_code(X)   # shape = Mx1
+        I = complement_code(X)   
         T = []
         for i in range(self.N):           
             T.append( np.sum(minimum(I,self.W[i,:])) / (self.alpha+np.sum(self.W[i,:])) ) # calculate output        
         J_list = np.argsort(np.array(T))[::-1]  # J_list: indices of F2 nodes with decreasing order of activations        
+        J = J_list[0] #second maximum activation
+        return self.W[J,:], J
+        '''
         for J in J_list:
             # Checking for resonance ---
             d = np.sum(minimum(I,self.W[J,:])) / np.sum(I)
             if d >= self.rho: # resonance occured
                 return self.W[J,:], J
- 
+            return None, None
+         '''
+         
+    def save_params(self, file_path): # save weights and no. of categories
+        with open(file_path,'wb') as f:
+            params = [self.W,self.N]
+            pickle.dump(params, f)
             
-def minimum(A,B):
-    ans=[]
-    for i in range(len(A)):
-        ans.append(min([A[i],B[i]]))
-        
-    ans = np.array(ans)
-    return ans
+    def load_params(self, file_path):
+        with open(file_path,'rb') as f:
+            params = pickle.load(f,encoding='bytes')
+        self.W, self.N = params
+ 
     
-def complement_code(X):
-        I = np.hstack((X, 1-X))
-        return I
-   
-def get_data():
-    mnist = pd.read_csv("datasets/MNIST/mnist_test.csv").values    
-    data = {}
-    for i in range(0,10):
-        mask = mnist[:,0]==i
-        temp = mnist[mask]
-        temp = temp/255
-        np.random.shuffle(temp)
-        temp = temp[0:5, 1:]      # 5 images of each digit
-        data[str(i)] = temp
-    return data
-
-
+    
 ###############################################################################
 if __name__ == '__main__':
 
@@ -95,23 +116,37 @@ if __name__ == '__main__':
     rho = 0.72 
     model = fuzzy_ART(28*28, c_max=100, rho=rho, alpha=0.00001, beta=1)
     
-    for k in range(0,10):
-        
-        data_digit = data[str(k)]  # images of one digit at a time
-        
-        for i in range(data_digit.shape[0]):  
-            Z, k = model.train(data_digit[i])
+    # loading weights
+    model.load_params("models/fuzzyART_weights_1")
+    
+    
+    # Training 
+    n_epochs = 3
+    for e in range(n_epochs):
+        for d in range(0,10):
             
-            plt.imshow(Z[:784].reshape(28,28)) #display learned expectations
-            #plt.imshow(data_digit[i].reshape(28,28))
-            plt.show()
-            print("CLASS: ", k)
-   
-    #Inference
+            data_digit = data[str(d)]  # images of one digit at a time
+            
+            for i in range(data_digit.shape[0]):  
+                Z, k = model.train(data_digit[i])
+                
+                plt.imshow(Z[:784].reshape(28,28)) #display learned expectations
+                #plt.imshow(data_digit[i].reshape(28,28))
+                plt.title("Viz. of learned weights for digit:{}, sample:{}".format(str(d),str(i+1)))
+                #plt.savefig("results/fuzzyART-1/learned wts/{}_{}.png".format(str(d),str(i+1)))
+                plt.show()
+                print("CLASS: ", k)
+    
+    # Inference
     digit = 9
     sample_no = 2
     sample = data[str(digit)][sample_no]
     plt.imshow(sample[:784].reshape(28,28))
     plt.show()            
     print("Inferred category: ", model.infer(sample)[1] )
+    
+    # saving the learned weights
+   # model.save_params("models/fuzzyART_weights_1")
+    
+   
     
