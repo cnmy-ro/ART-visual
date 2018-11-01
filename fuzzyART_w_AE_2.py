@@ -24,7 +24,7 @@ def get_data():
         temp = mnist[mask]
         temp = temp/255
         np.random.shuffle(temp)
-        temp = temp[0:5, 1:]      # 5 images of each digit
+        temp = temp[0:10, 1:]      # 10 images of each digit
         data[str(i)] = temp
     return data
 
@@ -114,7 +114,7 @@ elif fuzzy_ART_MODE is "TRAIN":
     '''    
     
     #initialize a fuzzy ART model for training
-    ART_rho = 0.999834 #0.99967 # vigilance parameter
+    ART_rho = 0.99978 #0.999834  # vigilance parameter
     ART_model = fuzzy_ART.fuzzy_ART(32, 
                                     c_max=50, 
                                     rho=ART_rho,
@@ -133,7 +133,7 @@ elif fuzzy_ART_MODE is "TRAIN":
     sample = encoded_train_data[n]
     inference = ART_model.infer(sample)
     '''    
-    #ART_model.save_params("models/fuzzyART_w_AE-2_weights")
+    ART_model.save_params("models/fuzzyART_w_AE-2_weights")
 
     ######################### save preprocessed_data ##########################
     '''
