@@ -10,5 +10,5 @@ AE config:
 ART config:
 	
 	Input size: 32 (2 x 2 x 8)
-	vigilance param, rho: 0.999834
-	No. of samples of each digit: 5
+	vigilance param, rho: 0.99978
+	No. of samples of each digit: 10
