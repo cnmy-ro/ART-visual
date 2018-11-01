@@ -24,7 +24,7 @@ def get_data():
         temp = mnist[mask]
         temp = temp/255
         np.random.shuffle(temp)
-        temp = temp[0:100, 1:]      # 5 images of each digit
+        temp = temp[0:5, 1:]      # 5 images of each digit
         data[str(i)] = temp
     return data
 
@@ -65,7 +65,7 @@ def train_fuzzy_ART(model, data_array):
 AE_model = AE_class_2.AutoEncoder()
 AE_model.load_model("models/TF-AE/")
 
-##############################  Import test data  #############################
+#####################################  TEST  ##################################
 
 if fuzzy_ART_MODE is "TEST":
     # Load pre-trained fuzzy art model
@@ -105,16 +105,16 @@ if fuzzy_ART_MODE is "TEST":
 
 
     
-############################## or import train data ###########################
+################################# or TRAIN ########3###########################
 
 elif fuzzy_ART_MODE is "TRAIN":
     '''
     In this case, the fuzzy ART model will be trained on the data encoded by the
-    Autoencoder
+    pretrained Autoencoder
     '''    
     
     #initialize a fuzzy ART model for training
-    ART_rho = 0.99967 # vigilance parameter
+    ART_rho = 0.999834 #0.99967 # vigilance parameter
     ART_model = fuzzy_ART.fuzzy_ART(32, 
                                     c_max=50, 
                                     rho=ART_rho,
