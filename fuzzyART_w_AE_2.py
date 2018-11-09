@@ -24,9 +24,10 @@ def get_data():
         temp = mnist[mask]
         temp = temp/255
         np.random.shuffle(temp)
-        temp = temp[0:10, 1:]      # 10 images of each digit
+        temp = temp[0:5, 1:]      # 5 images of each digit
         data[str(i)] = temp
     return data
+
 
 def preprocess_for_AE(data_dict):
     data_array = []
@@ -44,8 +45,10 @@ def preprocess_for_ART(data_array):
     return data_array
     
 
-def train_fuzzy_ART(model, data_array):
-        
+def train_fuzzy_ART(model, data_array, shuffle_data=False):
+    if shuffle_data:
+        np.random.shuffle(data_array) 
+    
     for i in range(data_array.shape[0]):  
         Z, k = model.train(data_array[i])
         
@@ -60,26 +63,10 @@ def train_fuzzy_ART(model, data_array):
     
     return model
 
-
-# Load Tensorflow AutoEncoder model
-AE_model = AE_class_2.AutoEncoder()
-AE_model.load_model("models/TF-AE/")
-
-#####################################  TEST  ##################################
-
-if fuzzy_ART_MODE is "TEST":
-    # Load pre-trained fuzzy art model
-    ART_rho = 0.95  # vigilance parameter
-    ART_model = fuzzy_ART.fuzzy_ART(32, 
-                                    c_max=20, 
-                                    rho=ART_rho, 
-                                    alpha=0.00001,
-                                    beta=1)
-    ART_model.load_params("models/fuzzyART_w_AE-2_weights")
-    
+def test(model):
     test_data = pd.read_csv("datasets/MNIST/mnist_test.csv").values
     np.random.shuffle(test_data)
-    test_data = test_data[:1000, :]
+    test_data = test_data[:1001, :]
     test_data_labels = np.array(test_data[:,0])
     test_data = test_data[:,1:]
     
@@ -101,11 +88,55 @@ if fuzzy_ART_MODE is "TEST":
     ART_output = np.array(ART_output)
     
     accuracy = np.mean( np.equal(test_data_labels, ART_output) ) * 100
+    
+    return accuracy, ART_output, test_data_labels
+
+
+def Purity(model):
+    _,  ART_output, test_data_labels = test(ART_model)
+    
+    #combined = np.vstack([ART_output, test_data_labels]).T
+    categories = {}
+    purity_list = []
+    for i in range(np.max(ART_output)+1):
+
+        mask = ART_output==i
+        temp = test_data_labels[mask]  # labels of data belonging to category i
+        
+        categories[str(i)] = temp
+        if temp.shape[0] != 0:
+            most_freq_label = np.bincount(temp).argmax()
+            purity_for_curr_category = np.mean( temp==most_freq_label ) *100
+        else:
+            purity_for_curr_category = 0
+        purity_list.append( purity_for_curr_category)
+
+    purity = np.mean( np.array(purity_list) )    
+    return purity
+    
+   
+############### Load pre-trained Tensorflow AutoEncoder model #################
+AE_model = AE_class_2.AutoEncoder()
+AE_model.load_model("models/TF-AE/")
+
+#####################################  TEST  ##################################
+
+if fuzzy_ART_MODE is "TEST":
+    # Load pre-trained fuzzy art model
+    ART_rho = 0.95  # vigilance parameter
+    ART_model = fuzzy_ART.fuzzy_ART(32, 
+                                    c_max=20, 
+                                    rho=ART_rho, 
+                                    alpha=0.00001,
+                                    beta=1)
+    ART_model.load_params("models/fuzzyART_w_AE-2_weights")
+ 
+    accuracy, _, _ = test(ART_model)
     print("Test accuracy: ", accuracy)
 
 
     
-################################# or TRAIN ########3###########################
+################################# or TRAIN ####################################
 
 elif fuzzy_ART_MODE is "TRAIN":
     '''
@@ -114,11 +145,11 @@ elif fuzzy_ART_MODE is "TRAIN":
     '''    
     
     #initialize a fuzzy ART model for training
-    ART_rho = 0.99978 #0.999834  # vigilance parameter
+    ART_rho = 0.999823 # vigilance parameter
     ART_model = fuzzy_ART.fuzzy_ART(32, 
-                                    c_max=50, 
+                                    c_max=20, 
                                     rho=ART_rho,
-                                    alpha=0.00001, 
+                                    alpha=0.000001, 
                                     beta=1)
     
     ART_train_data = get_data()
@@ -127,13 +158,31 @@ elif fuzzy_ART_MODE is "TRAIN":
     encoded_train_data = AE_model.autoencode(preprocessed_data, True)
     
     encoded_train_data = preprocess_for_ART(encoded_train_data)
-    ART_model = train_fuzzy_ART(ART_model, encoded_train_data)
+    
+    n_epochs = 3
+    #acc_list = []
+    purity_list = []
+    for e in range(n_epochs):
+        ART_model = train_fuzzy_ART(ART_model, encoded_train_data, shuffle_data=True)
+        #accuracy, _, _ = test(ART_model)
+        purity = Purity(ART_model)
+        
+        #print("Test accuracy at epoch {}: {}".format(e+1, accuracy))
+        print("Purity at epoch {}: {}".format(e+1, purity))
+        #acc_list.append(accuracy)
+        purity_list.append(purity)
+        
+    #plt.plot(acc_list)
+    plt.plot(purity_list)
+    plt.show()
+        
+        
     '''
     n = np.random.randint(encoded_train_data.shape[0])
     sample = encoded_train_data[n]
     inference = ART_model.infer(sample)
     '''    
-    ART_model.save_params("models/fuzzyART_w_AE-2_weights")
+    #ART_model.save_params("models/fuzzyART_w_AE-2_weights")
 
     ######################### save preprocessed_data ##########################
     '''
@@ -144,3 +193,32 @@ elif fuzzy_ART_MODE is "TRAIN":
         plt.savefig( results_dir+"ART_train_data/"+"{}_{}.png".format(str(floor(i/5)),str(i%5 + 1)) )
         plt.show()
     '''
+   
+    
+   
+    
+    '''
+    #ART_rho_list = [0.99978, 0.9997048, 0.9997052, 0.9997054, 0.9997055, 0.9997057, 0.9997058, 0.999706, 0.9997065, 0.9997068]
+    ART_rho_list = ( np.random.rand(5)*2 - 1 )*0.00001 + 0.999779
+    ART_rho_list = np.sort(ART_rho_list)
+    #ART_rho_list = [0.99983, 0.999831, 0.999832]
+    #alpha_list = ( np.random.rand(5)*2 - 1 )*0.07 +0.1 
+    acc_list=[]
+    n_epochs = 1
+    for rho in ART_rho_list:
+        ART_model = fuzzy_ART.fuzzy_ART(32, 
+                                    c_max=20, 
+                                    rho=rho,
+                                    alpha=0.0001, 
+                                    beta=1)
+                
+        for e in range(n_epochs):
+            ART_model = train_fuzzy_ART(ART_model, encoded_train_data, shuffle_data=False)
+            accuracy, _, _ = test(ART_model)
+            #print("Test accuracy at epoch {}: {}".format(e+1, accuracy))
+        acc_list.append(accuracy)
+           
+    plt.plot(ART_rho_list, acc_list)
+    plt.show()
+    '''   
+    
