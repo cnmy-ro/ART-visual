@@ -9,6 +9,7 @@ import AE_class_2
 
 
 
+
 fuzzy_ART_MODE = "TRAIN"
 results_dir = "results/fuzzyART_w_AE-2/"
 
@@ -104,15 +105,15 @@ def Purity(model):
         temp = test_data_labels[mask]  # labels of data belonging to category i
         
         categories[str(i)] = temp
-        if temp.shape[0] != 0:
-            most_freq_label = np.bincount(temp).argmax()
+        if temp.shape[0] > 0:
+            most_freq_label = np.argmax( np.bincount(temp) )
             purity_for_curr_category = np.mean( temp==most_freq_label ) *100
         else:
             purity_for_curr_category = 0
         purity_list.append( purity_for_curr_category)
 
     purity = np.mean( np.array(purity_list) )    
-    return purity
+    return purity, categories
     
    
 ############### Load pre-trained Tensorflow AutoEncoder model #################
@@ -143,9 +144,9 @@ elif fuzzy_ART_MODE is "TRAIN":
     In this case, the fuzzy ART model will be trained on the data encoded by the
     pretrained Autoencoder
     '''    
-    
+    np.random.seed(0)
     #initialize a fuzzy ART model for training
-    ART_rho = 0.999823 # vigilance parameter
+    ART_rho = 0.999830 # vigilance parameter
     ART_model = fuzzy_ART.fuzzy_ART(32, 
                                     c_max=20, 
                                     rho=ART_rho,
@@ -159,22 +160,23 @@ elif fuzzy_ART_MODE is "TRAIN":
     
     encoded_train_data = preprocess_for_ART(encoded_train_data)
     
-    n_epochs = 3
+    n_epochs = 1
     #acc_list = []
     purity_list = []
     for e in range(n_epochs):
-        ART_model = train_fuzzy_ART(ART_model, encoded_train_data, shuffle_data=True)
+        ART_model = train_fuzzy_ART(ART_model, encoded_train_data, shuffle_data=False)
         #accuracy, _, _ = test(ART_model)
-        purity = Purity(ART_model)
+        purity, Categories = Purity(ART_model)
         
         #print("Test accuracy at epoch {}: {}".format(e+1, accuracy))
         print("Purity at epoch {}: {}".format(e+1, purity))
         #acc_list.append(accuracy)
         purity_list.append(purity)
         
-    #plt.plot(acc_list)
-    plt.plot(purity_list)
-    plt.show()
+        
+    if n_epochs > 1:
+        plt.plot(purity_list)
+        plt.show()
         
         
     '''
@@ -196,29 +198,34 @@ elif fuzzy_ART_MODE is "TRAIN":
    
     
    
-    
     '''
+    
     #ART_rho_list = [0.99978, 0.9997048, 0.9997052, 0.9997054, 0.9997055, 0.9997057, 0.9997058, 0.999706, 0.9997065, 0.9997068]
-    ART_rho_list = ( np.random.rand(5)*2 - 1 )*0.00001 + 0.999779
+    ART_rho_list = ( np.random.rand(5)*2 - 1 )*0.00001 + 0.999817
     ART_rho_list = np.sort(ART_rho_list)
     #ART_rho_list = [0.99983, 0.999831, 0.999832]
     #alpha_list = ( np.random.rand(5)*2 - 1 )*0.07 +0.1 
-    acc_list=[]
-    n_epochs = 1
+    purity_list=[]
+    #n_epochs = 1
+    
+    np.random.seed(0)
+    
     for rho in ART_rho_list:
         ART_model = fuzzy_ART.fuzzy_ART(32, 
                                     c_max=20, 
                                     rho=rho,
                                     alpha=0.0001, 
                                     beta=1)
-                
-        for e in range(n_epochs):
-            ART_model = train_fuzzy_ART(ART_model, encoded_train_data, shuffle_data=False)
-            accuracy, _, _ = test(ART_model)
-            #print("Test accuracy at epoch {}: {}".format(e+1, accuracy))
-        acc_list.append(accuracy)
-           
-    plt.plot(ART_rho_list, acc_list)
-    plt.show()
-    '''   
+                   
+        ART_model = train_fuzzy_ART(ART_model, encoded_train_data, shuffle_data=False)
+
+        purity, Categories = Purity(ART_model)
     
+        print("Purity for rho={}:  {} ".format(rho, purity))        
+        
+        purity_list.append(purity)
+            
+    plt.plot(ART_rho_list, purity_list)
+    plt.show()
+     
+    '''
