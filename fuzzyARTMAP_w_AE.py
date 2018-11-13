@@ -73,7 +73,7 @@ def train_fuzzy_ARTMAP(model, data_array, label_array):
         #enc_learned_wts = Z[:32].reshape(4,8)
         if Z is not None:
             plt.imshow(Z) #display learned expectations
-            plt.title("Viz. of learned encoded digit: {}, sample:{}".format(str( floor( i/(data_array.shape[0]/10) ) ),
+            plt.title("Viz. of learned weights for digit: {}, sample:{}".format(str( floor( i/(data_array.shape[0]/10) ) ),
                                                                             str( i%(data_array.shape[0]/10) + 1)) )
             #plt.savefig( results_dir+"encoded_wts/"+"{}_{}.png".format(str(floor(i/5)),str(i%5 + 1)) )
             plt.show()
@@ -111,30 +111,7 @@ def test(model):
     
     return accuracy, ART_output, test_data_labels
 
-'''
-def Purity(model):
-    _,  ART_output, test_data_labels = test(ART_model)
-    
-    #combined = np.vstack([ART_output, test_data_labels]).T
-    categories = {}
-    purity_list = []
-    for i in range(np.max(ART_output)+1):
 
-        mask = ART_output==i
-        temp = test_data_labels[mask]  # labels of data belonging to category i
-        
-        categories[str(i)] = temp
-        if temp.shape[0] > 0:
-            most_freq_label = np.argmax( np.bincount(temp) )
-            purity_for_curr_category = np.mean( temp==most_freq_label ) *100
-        else:
-            purity_for_curr_category = 0
-        purity_list.append( purity_for_curr_category)
-
-    purity = np.mean( np.array(purity_list) )    
-    return purity, categories
-'''    
-   
 ############### Load pre-trained Tensorflow AutoEncoder model #################
 AE_model = AE_class_2.AutoEncoder()
 AE_model.load_model("models/TF-AE/")
@@ -143,13 +120,19 @@ AE_model.load_model("models/TF-AE/")
 
 if fuzzy_ART_MODE is "TEST":
     # Load pre-trained fuzzy art model
-    ART_rho = 0.95  # vigilance parameter
-    ART_model = fuzzy_ARTMAP.fuzzy_ARTMAP(32, 
-                                        c_max=20, 
-                                        rho=ART_rho, 
-                                        alpha=0.00001,
-                                        beta=1)
-    ART_model.load_params("models/fuzzyART_w_AE-2_weights")
+    ART_a_rho = 1 # vigilance parameter
+    ART_b_rho = 0.999
+    map_field_rho = 0.9
+    ART_model = fuzzy_ARTMAP.fuzzy_ARTMAP(32, 10, 
+                                        c_max_a=200,
+                                        c_max_b=12,
+                                        rho_a=ART_a_rho,
+                                        rho_b=ART_b_rho,
+                                        rho_ab=map_field_rho,
+                                        alpha=0.000001, 
+                                        beta=0.1)
+    
+    ART_model.load_params("models/fuzzyARTMAP_w_AE_weights")
  
     accuracy, _, _ = test(ART_model)
     print("Test accuracy: ", accuracy)
@@ -170,15 +153,15 @@ elif fuzzy_ART_MODE is "TRAIN":
     ART_b_rho = 0.999
     map_field_rho = 0.9
     ART_model = fuzzy_ARTMAP.fuzzy_ARTMAP(32, 10, 
-                                        c_max_a=100,
-                                        c_max_b=15,
+                                        c_max_a=200,
+                                        c_max_b=12,
                                         rho_a=ART_a_rho,
                                         rho_b=ART_b_rho,
                                         rho_ab=map_field_rho,
                                         alpha=0.000001, 
                                         beta=0.1)
     
-    ART_train_data, one_hot_labels = get_data(n_examples=10)
+    ART_train_data, one_hot_labels = get_data(n_examples=20)
     
     preprocessed_data, one_hot_labels =  preprocess_for_AE(ART_train_data, one_hot_labels)
     encoded_train_data = AE_model.autoencode(preprocessed_data, True)
