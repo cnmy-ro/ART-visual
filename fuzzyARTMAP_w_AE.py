@@ -17,7 +17,7 @@ results_dir = "results/fuzzyART_w_AE-2/"
 
 ################################ Helper Functions #############################
 
-def get_data():
+def get_data(n_examples):
     mnist = pd.read_csv("datasets/MNIST/mnist_test.csv").values    
     data = {}
     labels = {}
@@ -27,10 +27,10 @@ def get_data():
         
         np.random.shuffle(digit_imgs)
         
-        digit_labels = digit_imgs[0:5, 0]
+        digit_labels = digit_imgs[0:n_examples, 0]
         digit_labels = one_hot_encode(digit_labels)
         
-        digit_imgs = digit_imgs[0:5, 1:]      # 5 images of each digit
+        digit_imgs = digit_imgs[0:n_examples, 1:]      # n_examples images of each digit
         digit_imgs = digit_imgs/255
         
         data[str(i)] = digit_imgs
@@ -71,11 +71,12 @@ def train_fuzzy_ARTMAP(model, data_array, label_array):
         Z, k = model.train(data_array[i], label_array[i])
         
         #enc_learned_wts = Z[:32].reshape(4,8)
-        plt.imshow(Z) #display learned expectations
-        plt.title("Viz. of learned encoded digit: {}, sample:{}".format(str( floor( i/(data_array.shape[0]/10) ) ),
-                                                                        str( i%(data_array.shape[0]/10) + 1)) )
-        #plt.savefig( results_dir+"encoded_wts/"+"{}_{}.png".format(str(floor(i/5)),str(i%5 + 1)) )
-        plt.show()
+        if Z is not None:
+            plt.imshow(Z) #display learned expectations
+            plt.title("Viz. of learned encoded digit: {}, sample:{}".format(str( floor( i/(data_array.shape[0]/10) ) ),
+                                                                            str( i%(data_array.shape[0]/10) + 1)) )
+            #plt.savefig( results_dir+"encoded_wts/"+"{}_{}.png".format(str(floor(i/5)),str(i%5 + 1)) )
+            plt.show()
          
         print("CLASS: ", k)
     
@@ -84,7 +85,7 @@ def train_fuzzy_ARTMAP(model, data_array, label_array):
 def test(model):
     test_data = pd.read_csv("datasets/MNIST/mnist_test.csv").values
     np.random.shuffle(test_data)
-    test_data = test_data[:1001, :]
+    test_data = test_data[:1000, :]
     test_data_labels = np.array(test_data[:,0])
     test_data = test_data[:,1:]
     
@@ -110,7 +111,7 @@ def test(model):
     
     return accuracy, ART_output, test_data_labels
 
-
+'''
 def Purity(model):
     _,  ART_output, test_data_labels = test(ART_model)
     
@@ -132,7 +133,7 @@ def Purity(model):
 
     purity = np.mean( np.array(purity_list) )    
     return purity, categories
-    
+'''    
    
 ############### Load pre-trained Tensorflow AutoEncoder model #################
 AE_model = AE_class_2.AutoEncoder()
@@ -143,11 +144,11 @@ AE_model.load_model("models/TF-AE/")
 if fuzzy_ART_MODE is "TEST":
     # Load pre-trained fuzzy art model
     ART_rho = 0.95  # vigilance parameter
-    ART_model = fuzzy_ARTMAP.simplified_fuzzy_ARTMAP(32, 
-                                                    c_max=20, 
-                                                    rho=ART_rho, 
-                                                    alpha=0.00001,
-                                                    beta=1)
+    ART_model = fuzzy_ARTMAP.fuzzy_ARTMAP(32, 
+                                        c_max=20, 
+                                        rho=ART_rho, 
+                                        alpha=0.00001,
+                                        beta=1)
     ART_model.load_params("models/fuzzyART_w_AE-2_weights")
  
     accuracy, _, _ = test(ART_model)
@@ -163,17 +164,21 @@ elif fuzzy_ART_MODE is "TRAIN":
     pretrained Autoencoder
     '''    
     np.random.seed(0)
-    #initialize a fuzzy ART model for training
-    ART_a_rho = 0.9 # vigilance parameter
-    map_field_rho = 0.8
-    ART_model = fuzzy_ARTMAP.simplified_fuzzy_ARTMAP(32, 10, 
-                                                    c_max_a=50, 
-                                                    rho_a=ART_a_rho,
-                                                    rho_ab=map_field_rho,
-                                                    alpha=0.000001, 
-                                                    beta=1)
     
-    ART_train_data, one_hot_labels = get_data()
+    #initialize a fuzzy ART model for training
+    ART_a_rho = 1 # vigilance parameter
+    ART_b_rho = 0.999
+    map_field_rho = 0.9
+    ART_model = fuzzy_ARTMAP.fuzzy_ARTMAP(32, 10, 
+                                        c_max_a=100,
+                                        c_max_b=15,
+                                        rho_a=ART_a_rho,
+                                        rho_b=ART_b_rho,
+                                        rho_ab=map_field_rho,
+                                        alpha=0.000001, 
+                                        beta=0.1)
+    
+    ART_train_data, one_hot_labels = get_data(n_examples=10)
     
     preprocessed_data, one_hot_labels =  preprocess_for_AE(ART_train_data, one_hot_labels)
     encoded_train_data = AE_model.autoencode(preprocessed_data, True)
