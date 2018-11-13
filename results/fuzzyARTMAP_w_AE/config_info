@@ -1,0 +1,32 @@
+AE config:
+
+	Encoder:
+		input shape:  -1 x 32 x 32 x 1
+		output shape: -1 x 2 x 2x 8
+	Decoder:
+		input shape: -1 x 2 x 2 x 8
+		output shape:  -1 x 32 x 32 x 1
+
+
+Fuzzy ARTMAP config:
+	
+	Training inputs shape:
+		single I/P data:  32 (encoded image)
+		single I/P label: 10 (one hot encoded)
+
+	Training set size: 200 (20 per digit)
+	
+	Test inputs shape:
+		single I/P data:  32 (encoded image)
+
+	Test set size: 1000 (randomly sampled)
+
+	Hyper-parameters:
+		rho_a = 1.0
+		rho_b = 0.999
+		rho_ab = 0.9
+
+		c_max_a = 200
+		c_max_b = 12  (10 classes + 2 as tolerance)
+
+	
