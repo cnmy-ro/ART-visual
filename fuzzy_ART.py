@@ -18,7 +18,7 @@ def complement_code(X):
         I = np.hstack((X, 1-X))
         return I
    
-def get_data():
+def get_data(samples_per_digit=10):
     mnist = pd.read_csv("datasets/MNIST/mnist_test.csv").values    
     data = {}
     for i in range(0,10):
@@ -26,7 +26,7 @@ def get_data():
         temp = mnist[mask]
         temp = temp/255
         np.random.shuffle(temp)
-        temp = temp[0:5, 1:]      # 5 images of each digit
+        temp = temp[0:samples_per_digit, 1:]
         data[str(i)] = temp
     return data
 
@@ -67,22 +67,26 @@ class fuzzy_ART:
         
         return None, None
     
-    def infer(self, X):
+    def infer(self, X, rtl=False): # rtl : real-time learning (learning while inferring)
         I = complement_code(X)   
         T = []
         for i in range(self.N):           
             T.append( np.sum(minimum(I,self.W[i,:])) / (self.alpha+np.sum(self.W[i,:])) ) # calculate output        
         J_list = np.argsort(np.array(T))[::-1]  # J_list: indices of F2 nodes with decreasing order of activations        
-        J = J_list[0] #second maximum activation
-        return self.W[J,:], J
-        '''
-        for J in J_list:
-            # Checking for resonance ---
-            d = np.sum(minimum(I,self.W[J,:])) / np.sum(I)
-            if d >= self.rho: # resonance occured
-                return self.W[J,:], J
-            return None, None
-         '''
+        
+        if not rtl: # only infer
+            J = J_list[0] # maximum activation
+            return self.W[J,:], J    
+        else:       # infer AND learn
+            for J in J_list:
+                # Checking for resonance ---
+                d = np.sum(minimum(I,self.W[J,:])) / np.sum(I)
+                if d >= self.rho: # resonance occured
+                    self.W[J,:] = self.beta*minimum(I,self.W[J,:]) + (1-self.beta)*self.W[J,:] # weight update (learning)
+                    return self.W[J,:], J
+    
+            J = J_list[0]          # if no resonance occurs, 
+            return self.W[J,:], J  # return the maximum activated weights anyway
          
     def save_params(self, file_path): # save weights and no. of categories
         with open(file_path,'wb') as f:
@@ -99,9 +103,9 @@ class fuzzy_ART:
 ###############################################################################
 if __name__ == '__main__':
 
-    np.random.seed(1)
+    #np.random.seed(1)
     
-    data = get_data()
+    data = get_data(samples_per_digit=5)
     
     '''
     #data check
@@ -113,15 +117,15 @@ if __name__ == '__main__':
             plt.show()
     '''
     
-    rho = 0.72 
-    model = fuzzy_ART(28*28, c_max=100, rho=rho, alpha=0.00001, beta=1)
+    rho = 0.68
+    model = fuzzy_ART(28*28, c_max=50, rho=rho, alpha=0.00001, beta=1)
     
     # loading weights
-    model.load_params("models/fuzzyART_weights_1")
+    #model.load_params("models/fuzzyART_weights_1")
     
     
     # Training 
-    n_epochs = 3
+    n_epochs = 1
     for e in range(n_epochs):
         for d in range(0,10):
             
@@ -136,6 +140,7 @@ if __name__ == '__main__':
                 #plt.savefig("results/fuzzyART-1/learned wts/{}_{}.png".format(str(d),str(i+1)))
                 plt.show()
                 print("CLASS: ", k)
+            
     
     # Inference
     digit = 9
